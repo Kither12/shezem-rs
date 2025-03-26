@@ -29,11 +29,8 @@ enum Commands {
         #[arg(short, long, value_name = "DB_PATH")]
         path: PathBuf,
 
-        #[arg(short, long, default_value = "5")]
-        limit: usize,
-
-        #[arg(short, long, default_value = "0.7")]
-        threshold: f32,
+        #[arg(short, long, default_value = "10")]
+        rank: usize,
     },
 }
 
@@ -58,11 +55,10 @@ fn main() -> Result<()> {
         Commands::Search {
             query_file,
             path,
-            limit,
-            threshold,
+            rank,
         } => {
             let default_db_path = path.join(DEFAULT_FOLDER_DB_PATH).join(DEFAULT_DB_PATH);
-            search(query_file, &default_db_path)?;
+            search(query_file, &default_db_path, *rank)?;
             Ok(())
         }
     }

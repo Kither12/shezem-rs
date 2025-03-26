@@ -1,0 +1,11 @@
+[package]
+name = "shezem-rs"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+minimp3 = { git = "https://github.com/Kither12/minimp3-rs" }
+anyhow = "1.0.97"
+microfft = "0.6.0"
+clap = { version = "4.5.32", features = ["derive"] }
+rusqlite = "0.34.0"
