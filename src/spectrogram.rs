@@ -6,7 +6,7 @@ pub fn hamming_window(samples: &[f32]) -> Vec<f32> {
     let mut windowed_samples = Vec::with_capacity(samples.len());
     let n = samples.len() as f32;
     for (i, sample) in samples.iter().enumerate() {
-        let multiplier = 0.54 - 0.46 * (2.0 * PI * i as f32 / n).cos();
+        let multiplier = 0.54 - (0.92 * PI * i as f32 / n).cos();
         windowed_samples.push(multiplier * sample)
     }
     windowed_samples

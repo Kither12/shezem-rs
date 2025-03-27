@@ -22,7 +22,7 @@ pub struct RankingData {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct Couples {
+struct Couples {
     pub anchor_address: u32,
     pub anchor_time: u32,
     pub song_id: i32,
@@ -104,8 +104,10 @@ impl DbClient {
 
         Ok(row)
     }
-
-    pub fn search(&self, fingerprints: Vec<Fingerprint>, rank: usize) -> Result<Vec<RankingData>> {
+    fn get_fingerprint_from_database(
+        &self,
+        fingerprints: &Vec<Fingerprint>,
+    ) -> Result<Vec<FingerprintData>> {
         let placeholders: String = std::iter::repeat("?")
             .take(fingerprints.len())
             .collect::<Vec<_>>()
@@ -117,49 +119,58 @@ impl DbClient {
             .collect();
 
         let mut stmt = self.conn.prepare(&format!(
-            "SELECT address, anchorAddress, anchorTime, songID FROM fingerprints WHERE address IN ({})",
-            placeholders
-        ))?;
+                "SELECT address, anchorAddress, anchorTime, songID FROM fingerprints WHERE address IN ({})",
+                placeholders
+            ))?;
 
-        let rows = stmt.query_map(params.as_slice(), |row| {
-            Ok(FingerprintData {
-                fingerprint: Fingerprint {
-                    address: row.get(0)?,
-                    anchor_address: row.get(1)?,
-                    anchor_time: row.get(2)?,
-                },
-                song_id: row.get(3)?,
-            })
-        })?;
+        let rows = stmt
+            .query_map(params.as_slice(), |row| {
+                Ok(FingerprintData {
+                    fingerprint: Fingerprint {
+                        address: row.get(0)?,
+                        anchor_address: row.get(1)?,
+                        anchor_time: row.get(2)?,
+                    },
+                    song_id: row.get(3)?,
+                })
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
 
-        /*
-            I know I used lots of Hashmap here :DD
-        */
+        Ok(rows)
+    }
+    pub fn search(&self, fingerprints: Vec<Fingerprint>, rank: usize) -> Result<Vec<RankingData>> {
+        let sample_duration =
+            fingerprints.last().unwrap().anchor_time - fingerprints.first().unwrap().anchor_time;
 
-        let mut freq_map = HashMap::with_capacity(fingerprints.len());
-        let mut fingerprint_mp = HashMap::with_capacity(fingerprints.len() / NEIGHBORHOOD_SIZE);
+        let index_map: HashMap<u32, usize> = fingerprints
+            .iter()
+            .enumerate()
+            .map(|(i, fp)| (fp.address, i))
+            .collect();
 
-        for row_result in rows {
-            let row = row_result?;
+        let db_result = self.get_fingerprint_from_database(&fingerprints)?;
+
+        // Track fingerprint matches directly by song ID
+        let mut song_fingerprints: HashMap<i32, Vec<Fingerprint>> = HashMap::new();
+
+        // Count matches to identify complete neighborhoods
+        let mut match_counts: HashMap<Couples, usize> = HashMap::new();
+
+        for row in db_result {
             let key = Couples {
                 anchor_address: row.fingerprint.anchor_address,
                 anchor_time: row.fingerprint.anchor_time,
                 song_id: row.song_id,
             };
-            let count = freq_map.entry(key).or_insert(0);
+            let count = match_counts.entry(key).or_insert(0);
             *count += 1;
 
             if *count == NEIGHBORHOOD_SIZE {
-                fingerprint_mp
+                song_fingerprints
                     .entry(row.song_id)
                     .or_insert_with(Vec::new)
                     .push(row.fingerprint);
             }
-        }
-
-        let mut time_mp = HashMap::with_capacity(fingerprints.len());
-        for (i, fingerprint) in fingerprints.iter().enumerate() {
-            time_mp.insert(fingerprint.address, i);
         }
 
         /*
@@ -173,11 +184,9 @@ impl DbClient {
             within any window position will serve as our relevance score for that song.
         */
 
-        let delta =
-            fingerprints.last().unwrap().anchor_time - fingerprints.first().unwrap().anchor_time;
-        let mut result = Vec::with_capacity(fingerprint_mp.len());
-        for (song_id, mut fingerprints) in fingerprint_mp {
-            fingerprints.sort_unstable_by_key(|fp| time_mp[&fp.address]);
+        let mut result = Vec::with_capacity(song_fingerprints.len());
+        for (song_id, mut fingerprints) in song_fingerprints {
+            fingerprints.sort_unstable_by_key(|fp| index_map[&fp.address]);
             let times = fingerprints
                 .iter()
                 .map(|v| v.anchor_time)
@@ -187,7 +196,7 @@ impl DbClient {
             let mut l: usize = 0;
             let mut score = 0;
             for r in 0..lis.len() {
-                while lis[r] - lis[l] > delta {
+                while lis[r] - lis[l] > sample_duration {
                     l += 1;
                 }
                 score = max(score, r - l + 1);
@@ -196,16 +205,16 @@ impl DbClient {
             result.push((song_id, score as i32));
         }
 
-        result.sort_by(|a, b| b.1.cmp(&a.1));
+        result.sort_unstable_by_key(|a| -a.1);
         result.truncate(rank);
 
-        let mut result_vec = Vec::with_capacity(result.len());
-        for (song_id, score) in result {
-            match self.get_song_data(song_id) {
-                Ok(data) => result_vec.push(RankingData { data, score }),
-                Err(_) => continue,
-            }
-        }
-        Ok(result_vec)
+        Ok(result
+            .into_iter()
+            .filter_map(|(song_id, score)| {
+                self.get_song_data(song_id)
+                    .ok()
+                    .map(|data| RankingData { data, score })
+            })
+            .collect::<Vec<_>>())
     }
 }
