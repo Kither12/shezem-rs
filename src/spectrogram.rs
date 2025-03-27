@@ -191,7 +191,15 @@ pub struct Peak {
 }
 
 pub fn filter_spectrogram(spectrogram: &mut Vec<FFTWindow>, sample_rate: usize) -> Vec<Peak> {
-    let bands = [(0, 10), (10, 20), (20, 40), (40, 80), (80, 160), (160, 511)];
+    let bands = [
+        (20, 30),
+        (30, 40),
+        (40, 60),
+        (60, 80),
+        (80, 120),
+        (120, 200),
+        (200, 511),
+    ];
 
     let mut peaks = Vec::new();
 
@@ -204,7 +212,7 @@ pub fn filter_spectrogram(spectrogram: &mut Vec<FFTWindow>, sample_rate: usize) 
             let mut max_magnitude = 0.0;
             let mut max_bin = start;
 
-            for bin in start..=end {
+            for bin in start..end {
                 if bin < window.data.len() {
                     let magnitude = window.data[bin].norm_sqr();
                     if magnitude > max_magnitude {
