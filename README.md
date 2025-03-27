@@ -44,3 +44,10 @@ By default, this will return the top 10 matches. You can change the number of re
 ```bash
 shezem-rs search /path/to/query.mp3 --path /path/to/indexed/folder --rank 5
 ```
+## Performance 
+Performance benchmarks were conducted on a collection of 100 songs totaling approximately 1.1GB, using an AMD Ryzen 5 5600H (12) @ 4.28 GHz processor:
+
+- **Indexing Speed**: Complete folder indexing was accomplished in 35.5 seconds
+- **Search Performance**: 
+  - 10-second audio sample search: 0.3 seconds
+  - 3-minute audio sample search: 1.02 seconds
