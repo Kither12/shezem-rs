@@ -56,7 +56,7 @@ The algorithm is based on a fingerprinting system, heavily inspired by this arti
 While working on the audio fingerprinting process, I developed some interesting approaches that I believe are both faster and more efficient. I'll explain them in detail here.
 
 ### Preprocessing
-First, we need to convert the audio from stereo to mono by averaging the left and right channels. To reduce computational load, we also downsample the audio, which decreases the number of samples we need to process. Most downloaded songs have a sampling rate of 44.1kHz, but we'll downsample it to 11.025kHz. Before doing so, we must filter out any frequencies above the [Nyquist frequency](https://en.wikipedia.org/wiki/Nyquist_frequency) to prevent aliasing. We can achieve this by applying a simple (IIR low-pass filter)[https://tomroelandts.com/articles/low-pass-single-pole-iir-filter].
+First, we need to convert the audio from stereo to mono by averaging the left and right channels. To reduce computational load, we also downsample the audio, which decreases the number of samples we need to process. Most downloaded songs have a sampling rate of 44.1kHz, but we'll downsample it to 11.025kHz. Before doing so, we must filter out any frequencies above the [Nyquist frequency](https://en.wikipedia.org/wiki/Nyquist_frequency) to prevent aliasing. We can achieve this by applying a simple [IIR low-pass filter](https://tomroelandts.com/articles/low-pass-single-pole-iir-filter).
 
 ### Spectrogram
 The audio is transformed into a spectrogram using a Short-Time Fourier Transform (STFT) with a 1024-sample Hamming window and 50% overlap between adjacent windows. This creates a time-frequency representation of the audio signal.
